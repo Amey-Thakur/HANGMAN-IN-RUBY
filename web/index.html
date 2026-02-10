@@ -272,6 +272,11 @@
                         end
                     end
 
+                    # Also monkeypatch $stdin to handle cases where code calls $stdin.gets specifically
+                    def $stdin.gets(*args)
+                        Fiber.yield :wait_for_input
+                    end
+
                     $game_fiber = Fiber.new do
                         begin
                             Dir.chdir("/src")
