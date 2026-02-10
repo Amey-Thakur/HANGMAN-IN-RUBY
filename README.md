@@ -130,6 +130,7 @@ HANGMAN-IN-RUBY/
 │       └── deploy.yml               # CD Pipeline
 │
 ├── Gemfile                          # Dependency Definitions
+├── Gemfile.lock                     # Dependency Lockfile
 ├── SECURITY.md                      # Security Protocols
 ├── CITATION.cff                     # Project Citation Manifest
 ├── codemeta.json                    # Metadata Standard
