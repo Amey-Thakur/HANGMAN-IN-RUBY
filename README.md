@@ -147,7 +147,7 @@ HANGMAN-IN-RUBY/
 <div align="center">
   <b>Output</b>
   <br>
-  <i>Gameplay between Amey and Mega.</i>
+  <i>Interactive Hangman Session: Guessing "CONTINENT".</i>
   <br>
   <img src="Output.png" alt="Output" width="90%">
 </div>
