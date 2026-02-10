@@ -226,12 +226,22 @@
 
                 let loadedCount = 0;
                 for (const fileUrl of files) {
-                    const fileName = decodeURIComponent(fileUrl).split('/').pop();
+                    const decodedPath = decodeURIComponent(fileUrl);
+                    // Determine internal VFS path by removing "Source Code/Hangman/" prefix
+                    const vfsRelativePath = decodedPath.replace("Source Code/Hangman/", "");
+                    const vfsPath = `/src/${vfsRelativePath}`;
+                    const vfsDir = vfsPath.substring(0, vfsPath.lastIndexOf('/'));
+
                     const res = await fetch(fileUrl);
                     if (!res.ok) throw new Error(`Failed to fetch ${fileUrl}`);
                     const content = await res.text();
                     const safeContent = content.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
-                    vm.eval(`File.write("/src/${fileName}", <<~'RUBY_EOF'\n${safeContent}\nRUBY_EOF\n)`);
+
+                    vm.eval(`
+                        FileUtils.mkdir_p("${vfsDir}")
+                        File.write("${vfsPath}", <<~'RUBY_EOF'\n${safeContent}\nRUBY_EOF\n)
+                    `);
+
                     loadedCount++;
                     updateProgress(70 + (loadedCount / files.length * 20));
                 }
