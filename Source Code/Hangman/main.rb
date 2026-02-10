@@ -15,5 +15,22 @@
 
 require_relative 'lib/game'
 
-# Boot the game
-Game.new.play
+# Initiates a single game session.
+def play_game
+  Game.new.play
+  repeat_game
+end
+
+# Handles the post-game interaction flow.
+def repeat_game
+  puts "\nWould you like to play a new game? Press 'y' for yes or 'n' for no."
+  repeat_input = $stdin.gets.chomp.downcase
+  if repeat_input == 'y'
+    play_game
+  else
+    puts 'Thanks for playing!'
+  end
+end
+
+# Application Entry Point
+play_game
