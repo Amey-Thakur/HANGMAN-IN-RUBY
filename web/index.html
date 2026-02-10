@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+
+<!--
+==============================================================================
+ Filename: index.html
+
+ Author: Amey Thakur (https://github.com/Amey-Thakur)
+         Mega Satish (https://github.com/msatmod)
+
+ Repository: https://github.com/Amey-Thakur/HANGMAN-IN-RUBY
+ Release Date: 29 August 2022
+ License: MIT
+
+ Description:
+ The single-page application (SPA) entry point for the Hangman game.
+ It orchestrates the WebAssembly (WASM) runtime environment, initializing
+ the Ruby VM and bridging it with the browser's DOM via xterm.js.
+ Key features include:
+ - Dynamic loading of Ruby 3.3 WASM compiled with WASI support.
+ - Implementation of a virtual file system (VFS) to host Ruby source code.
+ - Asynchronous Fiber-based I/O loop to enable non-blocking user input
+   within the browser-based terminal emulator.
+==============================================================================
+-->
+
+<head>
+    <title>Hangman in Ruby | Amey & Mega</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="docs/Ruby%20Logo.png" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+
+    <!-- IMPORT MAP: Future-proof ESM loading -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@ruby/3.3-wasm-wasi": "https://cdn.jsdelivr.net/npm/@ruby/3.3-wasm-wasi@2.6.0/dist/esm/index.js",
+        "@ruby/wasm-wasi": "https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.6.0/dist/esm/index.js",
+        "@bjorn3/browser_wasi_shim": "https://cdn.jsdelivr.net/npm/@bjorn3/browser_wasi_shim@0.3.0/dist/index.js"
+      }
+    }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-family: monospace;
+        }
+
+        #terminal {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            max-width: 90%;
+            width: 600px;
+        }
+
+        .error {
+            color: #ff5555;
+            background: #330000;
+            padding: 10px;
+            border: 1px solid #ff0000;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            text-align: left;
+            font-size: 0.8em;
+        }
+
+        #log {
+            margin-top: 1em;
+            font-size: 0.9em;
+            opacity: 0.8;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            background: #111;
+            padding: 10px;
+            border: 1px solid #333;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+            border-bottom: 1px solid #222;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="terminal"></div>
+    <div id="status">
+        <h1>Initializing Hangman Game</h1>
+        <p style="margin-top: -15px; color: #aaa; font-size: 0.9em;">Created by Amey Thakur & Mega Satish</p>
+        <div id="progressBar" style="width: 100%; height: 4px; background: #333; margin: 10px 0;">
+            <div id="progressFill" style="width: 0%; height: 100%; background: #cc0000; transition: width 0.3s;"></div>
+        </div>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const logDiv = document.getElementById("log");
+        const progressFill = document.getElementById("progressFill");
+        function log(msg, isError = false) {
+            const div = document.createElement("div");
+            div.className = "log-entry";
+            div.textContent = `> ${msg}`;
+            if (isError) {
+                div.style.color = "#ff5555";
+                console.error(msg);
+            } else {
+                console.log(msg);
+            }
+            logDiv.appendChild(div);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        function updateProgress(percent) { progressFill.style.width = `${percent}%`; }
+        window.onerror = (msg, url, line) => { log(`CRITICAL ERROR: ${msg}\nLine: ${line}`, true); };
+        log("Bootstrapping Future-Proof Runtime...");
+    </script>
+
+    <script type="module">
+        import { RubyVM } from "@ruby/wasm-wasi";
+        import { WASI, ConsoleStdout, PreopenDirectory, OpenFile, File } from "@bjorn3/browser_wasi_shim";
+
+        log("Modules loaded (RubyVM + WASI Shim).");
+        updateProgress(10);
+
+        const start = async () => {
+            try {
+                // 1. Setup Xterm
+                log("Initializing Terminal...");
+                if (!window.Terminal) throw new Error("xterm.js not loaded");
+                const term = new Terminal({
+                    cursorBlink: true,
+                    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                    fontSize: 18,
+                    theme: { background: '#000000', foreground: '#f0f0f0' }
+                });
+                const fitAddon = new FitAddon.FitAddon();
+                term.loadAddon(fitAddon);
+                term.open(document.getElementById("terminal"));
+                fitAddon.fit();
+                window.addEventListener('resize', () => fitAddon.fit());
+                updateProgress(20);
+
+                // 2. Setup WASI Environment
+                log("Configuring WASI Environment...");
+
+                const fds = [
+                    new OpenFile(new File([])), // stdin
+                    new ConsoleStdout((buffer) => {
+                        try {
+                            const text = new TextDecoder("utf-8").decode(buffer);
+                            term.write(text.replace(/\n/g, "\r\n"));
+                            return buffer.length;
+                        } catch (e) { console.error("Stdout Error", e); return 0; }
+                    }), // stdout
+                    new ConsoleStdout((buffer) => {
+                        try {
+                            const text = new TextDecoder("utf-8").decode(buffer);
+                            term.write(`\x1b[31m${text.replace(/\n/g, "\r\n")}\x1b[0m`);
+                            return buffer.length;
+                        } catch (e) { console.error("Stderr Error", e); return 0; }
+                    }), // stderr
+                    new PreopenDirectory("/", new Map()) // Mount root
+                ];
+
+                const wasi = new WASI([], [], fds, { debug: false });
+
+                // 3. Create Ruby VM
+                const vm = new RubyVM();
+                const imports = {
+                    wasi_snapshot_preview1: wasi.wasiImport,
+                };
+                vm.addToImports(imports);
+
+                // 4. Load WASM
+                log("Downloading Ruby 3.3 WASM (v2.6.0)...");
+                const response = await fetch(
+                    "https://cdn.jsdelivr.net/npm/@ruby/3.3-wasm-wasi@2.6.0/dist/ruby+stdlib.wasm"
+                );
+                if (!response.ok) throw new Error(`Failed to fetch WASM: ${response.statusText}`);
+                const buffer = await response.arrayBuffer();
+                updateProgress(50);
+
+                // 5. Instantiate
+                log("Instantiating WebAssembly...");
+                const { instance } = await WebAssembly.instantiate(buffer, imports);
+                await vm.setInstance(instance);
+                wasi.initialize(instance);
+
+                // 6. Boot
+                log("Booting Ruby Kernel...");
+                vm.initialize(["ruby.wasm", "-e_=0", "-EUTF-8"]);
+                updateProgress(70);
+
+                // 7. Load Source Files
+                log("Fetching Project Source Code...");
+
+                const files = [
+                    "Source%20Code/Hangman/main.rb",
+                    "Source%20Code/Hangman/lib/game.rb",
+                    "Source%20Code/Hangman/lib/board.rb",
+                    "Source%20Code/Hangman/lib/display.rb"
+                ];
+
+                vm.eval(`require "fileutils"; FileUtils.mkdir_p("/src")`);
+
+                let loadedCount = 0;
+                for (const fileUrl of files) {
+                    const fileName = decodeURIComponent(fileUrl).split('/').pop();
+                    const res = await fetch(fileUrl);
+                    if (!res.ok) throw new Error(`Failed to fetch ${fileUrl}`);
+                    const content = await res.text();
+                    const safeContent = content.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+                    vm.eval(`File.write("/src/${fileName}", <<~'RUBY_EOF'\n${safeContent}\nRUBY_EOF\n)`);
+                    loadedCount++;
+                    updateProgress(70 + (loadedCount / files.length * 20));
+                }
+
+                updateProgress(100);
+
+                // 8. Start Game (Fiber Async Mode)
+                setTimeout(async () => {
+                    document.getElementById("status").style.display = "none";
+                    document.getElementById("terminal").style.display = "block";
+                    fitAddon.fit();
+                    term.focus();
+
+                    term.clear();
+                    term.write("\x1b[31;1mHangman in Ruby\x1b[0m | Amey & Mega\r\n");
+                    term.write("----------------------------------------------\r\n");
+
+                    // Define Fiber-based execution
+                    vm.eval(`
+                    require "js"
+                    STDOUT.sync = true
+                    STDERR.sync = true
+
+                    module Kernel
+                        def gets
+                             # Suspend execution and return a unique symbol to JS
+                             Fiber.yield :wait_for_input
+                        end
+                    end
+
+                    $game_fiber = Fiber.new do
+                        begin
+                            Dir.chdir("/src")
+                            load "main.rb"
+                        rescue Exception => e
+                            puts "\x1b[31mGAME CRASH: #{e.full_message}\x1b[0m"
+                        end
+                    end
+                `);
+
+                    // Input handling state
+                    let currentLine = "";
+
+                    term.onData(key => {
+                        const charCode = key.charCodeAt(0);
+
+                        if (charCode === 13) { // Enter
+                            term.write("\r\n");
+                            const inputToSend = currentLine;
+                            currentLine = "";
+                            resumeGame(inputToSend);
+                        } else if (charCode === 127) { // Backspace
+                            if (currentLine.length > 0) {
+                                currentLine = currentLine.slice(0, -1);
+                                term.write("\b \b");
+                            }
+                        } else {
+                            currentLine += key;
+                            term.write(key);
+                        }
+                    });
+
+                    async function resumeGame(input = null) {
+                        try {
+                            let result;
+                            if (input === null) {
+                                result = vm.eval("$game_fiber.resume");
+                            } else {
+                                window.rubyInput = input;
+                                result = vm.eval(`$game_fiber.resume(JS.global[:rubyInput].to_s.chomp)`);
+                            }
+                        } catch (e) {
+                            term.write(`\r\n\x1b[31mRuby Error: ${e.message}\x1b[0m\r\n`);
+                        }
+                    }
+
+                    log("Starting Fiber Loop...");
+                    await resumeGame();
+
+                }, 500);
+
+            } catch (e) {
+                log(e.message, true);
+            }
+        };
+
+        start();
+    </script>
+</body>
+
+</html>
