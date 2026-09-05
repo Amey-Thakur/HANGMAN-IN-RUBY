@@ -1,0 +1,36 @@
+# <a href="https://amey-thakur.github.io/RUBY/"><img src="docs/Ruby%20Logo.png" height="55" valign="middle"></a> <br> Hangman in Ruby
+
+> A Ruby terminal-based Hangman game showcasing object-oriented design,
+> modular architecture, and dynamic game state management.
+
+Author: Amey Thakur, ORCID 0000-0001-5644-1575
+Co-author: Mega Satish, ORCID 0000-0002-1844-9557
+Institution: Terna Engineering College, University of Mumbai
+Programme: B.E. Computer Engineering
+Licence: CC BY 4.0, attribution required
+Repository created: 29 August 2022
+
+## What is in this repository
+
+- Mega, 6 files
+- Source Code, 6 files
+- docs, 2 files
+- web, 1 file
+- Gemfile
+- Gemfile.lock
+- Hangman.rb
+- Output.png
+
+## Subject terms
+
+30-day-ruby-challenge, 30-days-of-code, cli-game, hangman, hangman-console,
+hangman-game, hangman-in-ruby, oop, ruby, ruby-app, ruby-projects,
+ruby-wasm, terminal-game, wasm, word-game
+
+## Where this sits
+
+- This repository: https://github.com/Amey-Thakur/HANGMAN-IN-RUBY
+- Degree index, every subject and project: https://github.com/Amey-Thakur/COMPUTER-ENGINEERING
+- Project page: https://amey-thakur.github.io/HANGMAN-IN-RUBY/
+- Author: https://github.com/Amey-Thakur
+- Research notes and reflections: https://amey-thakur.github.io/

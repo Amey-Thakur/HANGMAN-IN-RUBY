@@ -11,3 +11,7 @@ title: "HANGMAN-IN-RUBY"
 version: 1.0.0
 date-released: 2022-08-29
 url: "https://github.com/Amey-Thakur/HANGMAN-IN-RUBY"
+identifiers:
+  - type: other
+    value: "2022-08-29"
+    description: "Date this repository was created on GitHub."
